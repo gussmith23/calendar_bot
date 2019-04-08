@@ -2,36 +2,19 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
+mod tg;
+
 use std::string::String;
 
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde::Serialize;
 
 const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct Response<T> {
-    ok: bool,
-    result: Option<T>,
-    description: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct User {
-    id: i64,
-    is_bot: bool,
-    first_name: String,
-    last_name: Option<String>,
-    username: Option<String>,
-    language_code: Option<String>,
-}
 
 fn request<T: DeserializeOwned>(
     client: &reqwest::Client,
     token: &str,
     method: &str,
-) -> Response<T> {
+) -> tg::Response<T> {
     const BASE_URL: &'static str = "https://api.telegram.org/";
 
     let url = {
@@ -51,7 +34,7 @@ fn main() {
     let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
     let client = reqwest::Client::new();
 
-    let me: Response<User> = request(&client, &token, "getMe");
+    let me: tg::Response<tg::User> = request(&client, &token, "getMe");
     println!("{:?}", me);
 }
 
