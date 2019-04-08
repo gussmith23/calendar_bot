@@ -10,7 +10,7 @@ use serde::Serialize;
 const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct Response<T> where {
+struct Response<T> {
     ok: bool,
     result: Option<T>,
     description: Option<String>,
@@ -43,7 +43,14 @@ fn main() {
     let client = reqwest::Client::new();
 
     let me: Response<User> = serde_json::from_str(
-        &client.get(get_api_url(&token, "getMe")).send().unwrap().text().unwrap()).unwrap();
+        &client
+            .get(get_api_url(&token, "getMe"))
+            .send()
+            .unwrap()
+            .text()
+            .unwrap(),
+    )
+    .unwrap();
     println!("{:?}", me);
 }
 
@@ -55,7 +62,8 @@ mod tests {
     fn api_url_format() {
         let token = "123:abc-xyz";
         let method = "fooBar";
-        let expected = reqwest::Url::parse("https://api.telegram.org/bot123:abc-xyz/fooBar").unwrap();
+        let expected =
+            reqwest::Url::parse("https://api.telegram.org/bot123:abc-xyz/fooBar").unwrap();
         assert_eq!(get_api_url(token, method), expected);
     }
 }
