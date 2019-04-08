@@ -37,17 +37,3 @@ fn main() {
     let me: tg::Response<tg::User> = request(&client, &token, "getMe");
     println!("{:?}", me);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn api_url_format() {
-        let token = "123:abc-xyz";
-        let method = "fooBar";
-        let expected =
-            reqwest::Url::parse("https://api.telegram.org/bot123:abc-xyz/fooBar").unwrap();
-        assert_eq!(get_api_url(token, method), expected);
-    }
-}
