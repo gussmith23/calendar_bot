@@ -4,6 +4,7 @@ extern crate serde_json;
 
 use std::string::String;
 
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -26,31 +27,31 @@ struct User {
     language_code: Option<String>,
 }
 
-fn get_api_url(token: &str, method: &str) -> reqwest::Url {
+fn request<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    token: &str,
+    method: &str,
+) -> Response<T> {
     const BASE_URL: &'static str = "https://api.telegram.org/";
 
-    let mut url_str = String::from(BASE_URL);
-    url_str.push_str("bot");
-    url_str.push_str(token);
-    url_str.push('/');
-    url_str.push_str(method);
+    let url = {
+        let mut url_str = String::from(BASE_URL);
+        url_str.push_str("bot");
+        url_str.push_str(token);
+        url_str.push('/');
+        url_str.push_str(method);
 
-    reqwest::Url::parse(&url_str).unwrap()
+        reqwest::Url::parse(&url_str).unwrap()
+    };
+
+    serde_json::from_str(&client.get(url).send().unwrap().text().unwrap()).unwrap()
 }
 
 fn main() {
     let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
     let client = reqwest::Client::new();
 
-    let me: Response<User> = serde_json::from_str(
-        &client
-            .get(get_api_url(&token, "getMe"))
-            .send()
-            .unwrap()
-            .text()
-            .unwrap(),
-    )
-    .unwrap();
+    let me: Response<User> = request(&client, &token, "getMe");
     println!("{:?}", me);
 }
 
