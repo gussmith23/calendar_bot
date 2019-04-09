@@ -2,41 +2,50 @@ pub mod types;
 
 pub use self::types::*;
 
-use std::ops::FnOnce;
 use std::string::String;
 
 use futures::Future;
 use serde::de::DeserializeOwned;
 
-/// Fires off a request to the Telegram Bot API.
-///
-/// A function must be passed in which returns a string future given a
-/// URL string. Using futures here allows us to abstract over
-/// synchronicity; that is, this function doesn't care whether the
-/// request is done synchronously or asynchronously.
-///
-/// * `send`: Function that sends a request to the passed URL and
-/// returns a future for the result.
-///
-/// * `token`: The bot token given by the Botfather.
-///
-/// * `method`: The bot API method, e.g. "getUpdates" or
-/// "sendMessage".
-pub fn request<S, F, E, T>(send: S, token: &str, method: &str) -> impl Future<Item = T, Error = E>
+/// A client for the Telegram Bot API.
+pub struct Client<S> {
+    token: String,
+    send: S,
+}
+
+impl<S, F, E> Client<S>
 where
-    S: FnOnce(&str) -> F,
+    S: Fn(&str) -> F,
     F: Future<Item = String, Error = E>,
-    T: DeserializeOwned,
 {
-    const BASE_URL: &'static str = "https://api.telegram.org/";
+    /// Creates a new `Client`. `token` is the bot token given by the
+    /// Botfather. `send` is a function that will be called with a URL
+    /// string and should return a `Future` yielding the response
+    /// body.
+    pub fn new(token: String, send: S) -> Client<S> {
+        Client {
+            token: token,
+            send: send,
+        }
+    }
 
-    let mut url_str = String::from(BASE_URL);
-    url_str.push_str("bot");
-    url_str.push_str(token);
-    url_str.push('/');
-    url_str.push_str(method);
+    /// Fires off an API request, where `method` is the API method
+    /// (e.g. "getUpdates" or "sendMessage").
+    pub fn request<T>(&self, method: &str) -> impl Future<Item = T, Error = E>
+    where
+        T: DeserializeOwned,
+    {
+        const BASE_URL: &'static str = "https://api.telegram.org/";
 
-    send(&url_str).map(|s| serde_json::from_str(&s).expect("Received invalid JSON response"))
+        let mut url_str = String::from(BASE_URL);
+        url_str.push_str("bot");
+        url_str.push_str(&self.token);
+        url_str.push('/');
+        url_str.push_str(method);
+
+        (self.send)(&url_str)
+            .map(|s| serde_json::from_str(&s).expect("Received invalid JSON response"))
+    }
 }
 
 #[cfg(test)]
@@ -62,9 +71,8 @@ mod tests {
             future::ok::<String, ()>(serde_json::to_string(&()).unwrap())
         };
 
-        request::<_, _, (), ()>(mock_send, TOKEN, METHOD)
-            .wait()
-            .unwrap();
+        let client = Client::new(String::from(TOKEN), mock_send);
+        client.request::<()>(METHOD).wait().unwrap();
     }
 
     #[test]
@@ -81,7 +89,8 @@ mod tests {
         let stub_send =
             |_: &str| future::ok::<String, ()>(serde_json::to_string(&expected_result).unwrap());
 
-        let result: Fromble = request(stub_send, "", "").wait().unwrap();
+        let client = Client::new(String::from(""), stub_send);
+        let result: Fromble = client.request("").wait().unwrap();
 
         assert_eq!(result, expected_result);
     }
