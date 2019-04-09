@@ -63,3 +63,50 @@ fn main() {
     let me: tg::Response<tg::User> = result.unwrap();
     println!("{:?}", me);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde::Deserialize;
+    use serde::Serialize;
+
+    #[test]
+    /// Tests that `request` formats its request correctly.
+    fn request_format() {
+        const TOKEN: &'static str = "123:abc-xyz";
+        const METHOD: &'static str = "fooBar";
+        const EXPECTED_URL: &'static str = "https://api.telegram.org/bot123:abc-xyz/fooBar";
+
+        // Our `send` implementation that will verify what `request`
+        // sends.
+        let mock_send = |url: &str| {
+            assert_eq!(url, EXPECTED_URL);
+
+            future::ok::<String, ()>(serde_json::to_string(&()).unwrap())
+        };
+
+        request::<_, _, (), ()>(mock_send, TOKEN, METHOD)
+            .wait()
+            .unwrap();
+    }
+
+    #[test]
+    /// Tests that `request` correctly returns the result it receives.
+    fn request_result() {
+        #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+        struct Fromble {
+            n: u32,
+            b: bool,
+        }
+
+        let expected_result = Fromble { n: 1, b: true };
+
+        let stub_send =
+            |_: &str| future::ok::<String, ()>(serde_json::to_string(&expected_result).unwrap());
+
+        let result: Fromble = request(stub_send, "", "").wait().unwrap();
+
+        assert_eq!(result, expected_result);
+    }
+}
