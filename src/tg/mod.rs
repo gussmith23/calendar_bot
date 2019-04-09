@@ -29,6 +29,10 @@ where
         }
     }
 
+    pub fn get_me(&self) -> impl Future<Item = Response<User>, Error = E> {
+        self.request("getMe")
+    }
+
     /// Fires off an API request, where `method` is the API method
     /// (e.g. "getUpdates" or "sendMessage").
     fn request<T>(&self, method: &str) -> impl Future<Item = T, Error = E>
@@ -45,10 +49,6 @@ where
 
         (self.send)(&url_str)
             .map(|s| serde_json::from_str(&s).expect("Received invalid JSON response"))
-    }
-
-    pub fn get_me(&self) -> impl Future<Item = Response<User>, Error = E> {
-        self.request("getMe")
     }
 }
 

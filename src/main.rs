@@ -10,7 +10,13 @@ use std::string::String;
 use futures::future;
 use futures::Future;
 
-const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
+fn main() {
+    let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
+    let http_client = reqwest::Client::new();
+    let tg_client = tg::Client::new(token, |url| synchronous_send(&http_client, url));
+    let me = tg_client.get_me().wait().unwrap();
+    println!("{:?}", me);
+}
 
 /// Adapter for using reqwest with futures.
 fn synchronous_send(
@@ -22,10 +28,4 @@ fn synchronous_send(
     )
 }
 
-fn main() {
-    let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
-    let http_client = reqwest::Client::new();
-    let tg_client = tg::Client::new(token, |url| synchronous_send(&http_client, url));
-    let me = tg_client.get_me().wait().unwrap();
-    println!("{:?}", me);
-}
+const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
