@@ -28,11 +28,7 @@ const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
 ///
 /// * `method`: The bot API method, e.g. "getUpdates" or
 /// "sendMessage".
-fn request<S, F, E, T>(
-    send: S,
-    token: &str,
-    method: &str,
-) -> impl Future<Item = tg::Response<T>, Error = E>
+fn request<S, F, E, T>(send: S, token: &str, method: &str) -> impl Future<Item = T, Error = E>
 where
     S: FnOnce(&str) -> F,
     F: Future<Item = String, Error = E>,
