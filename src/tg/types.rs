@@ -17,3 +17,16 @@ pub struct User {
     pub username: Option<String>,
     pub language_code: Option<String>,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Update {
+    pub update_id: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct GetUpdates {
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
+    pub timeout: Option<i64>,
+    pub allowed_updates: Option<Vec<String>>,
+}
