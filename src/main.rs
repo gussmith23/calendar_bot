@@ -26,7 +26,6 @@ fn main() {
     let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
     let http_client = reqwest::Client::new();
     let tg_client = tg::Client::new(token, |url| synchronous_send(&http_client, url));
-    let result = tg_client.request("getMe").wait();
-    let me: tg::Response<tg::User> = result.unwrap();
+    let me = tg_client.get_me().wait().unwrap();
     println!("{:?}", me);
 }
