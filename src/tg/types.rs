@@ -21,6 +21,7 @@ pub struct User {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Update {
     pub update_id: i64,
+    pub message: Option<Message>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -29,4 +30,21 @@ pub struct GetUpdates {
     pub limit: Option<i64>,
     pub timeout: Option<i64>,
     pub allowed_updates: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Chat {
+    pub id: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SendMessage {
+    pub chat_id: u64,
+    pub text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Message {
+    pub message_id: u64,
+    pub chat: Chat,
 }

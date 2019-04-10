@@ -17,12 +17,33 @@ fn main() {
     let tg_client = tg::Client::new(token, |url, body| synchronous_send(&http_client, url, body));
     let me = tg_client.get_me().wait().unwrap().unwrap();
     println!("{:?}", me);
-    let updates = tg_client
-        .get_updates(Default::default())
-        .wait()
-        .unwrap()
-        .unwrap();
-    println!("{:?}", updates);
+
+    let mut update_offset = None;
+    loop {
+        let update_request = tg::GetUpdates {
+            offset: update_offset,
+            timeout: Some(10),
+            ..Default::default()
+        };
+        let updates = tg_client
+            .get_updates(update_request)
+            .wait()
+            .unwrap()
+            .unwrap();
+
+        update_offset = updates.last().map(|u| u.update_id + 1);
+
+        for u in updates.iter() {
+            if let Some(ref recv_msg) = u.message {
+                let msg = tg::SendMessage {
+                    chat_id: recv_msg.chat.id,
+                    text: String::from("frack my sack"),
+                };
+                let _sent_msg = tg_client.send_message(msg).wait().unwrap().unwrap();
+            }
+            println!("{:?}", u);
+        }
+    }
 }
 
 /// Adapter for using reqwest with futures.

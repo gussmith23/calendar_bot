@@ -52,6 +52,10 @@ where
         self.request("getUpdates", Some(args)).map(to_result)
     }
 
+    pub fn send_message(&self, arg: SendMessage) -> impl Future<Item = Result<Message>, Error = E> {
+        self.request("sendMessage", Some(arg)).map(to_result)
+    }
+
     /// Fires off an API request, where `method` is the API method
     /// (e.g. "getUpdates" or "sendMessage").
     fn request<T, U>(&self, method: &str, body: Option<T>) -> impl Future<Item = U, Error = E>
