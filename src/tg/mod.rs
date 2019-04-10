@@ -15,6 +15,16 @@ pub struct Client<S> {
     send: S,
 }
 
+type Result<T> = std::result::Result<T, ()>;
+
+fn to_result<T>(r: Response<T>) -> Result<T> {
+    if r.ok {
+        Ok(r.result.unwrap())
+    } else {
+        Err(())
+    }
+}
+
 impl<S, F, E> Client<S>
 where
     S: Fn(String, Option<String>) -> F,
@@ -31,15 +41,15 @@ where
         }
     }
 
-    pub fn get_me(&self) -> impl Future<Item = Response<User>, Error = E> {
-        self.request("getMe", None as Option<()>)
+    pub fn get_me(&self) -> impl Future<Item = Result<User>, Error = E> {
+        self.request("getMe", None as Option<()>).map(to_result)
     }
 
     pub fn get_updates(
         &self,
         args: GetUpdates,
-    ) -> impl Future<Item = Response<Vec<Update>>, Error = E> {
-        self.request("getUpdates", Some(args))
+    ) -> impl Future<Item = Result<Vec<Update>>, Error = E> {
+        self.request("getUpdates", Some(args)).map(to_result)
     }
 
     /// Fires off an API request, where `method` is the API method

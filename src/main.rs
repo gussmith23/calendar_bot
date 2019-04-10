@@ -15,9 +15,13 @@ fn main() {
     let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
     let http_client = reqwest::Client::new();
     let tg_client = tg::Client::new(token, |url, body| synchronous_send(&http_client, url, body));
-    let me = tg_client.get_me().wait().unwrap();
+    let me = tg_client.get_me().wait().unwrap().unwrap();
     println!("{:?}", me);
-    let updates = tg_client.get_updates(Default::default()).wait().unwrap();
+    let updates = tg_client
+        .get_updates(Default::default())
+        .wait()
+        .unwrap()
+        .unwrap();
     println!("{:?}", updates);
 }
 
