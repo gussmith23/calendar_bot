@@ -34,17 +34,17 @@ pub struct GetUpdates {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Chat {
-    pub id: u64,
+    pub id: i64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SendMessage {
-    pub chat_id: u64,
+    pub chat_id: i64,
     pub text: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Message {
-    pub message_id: u64,
+    pub message_id: i64,
     pub chat: Chat,
 }
