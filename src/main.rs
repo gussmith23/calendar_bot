@@ -5,11 +5,11 @@ extern crate serde_json;
 
 mod tg;
 
-use std::default::Default;
 use std::string::String;
 
 use futures::future;
 use futures::Future;
+use futures::Stream;
 
 fn main() {
     let token = std::env::var(TOKEN_ENV_VAR).expect("Missing TG_BOT_TOKEN env var");
@@ -18,32 +18,20 @@ fn main() {
     let me = tg_client.get_me().wait().unwrap().unwrap();
     println!("{:?}", me);
 
-    let mut update_offset = None;
-    loop {
-        let update_request = tg::GetUpdates {
-            offset: update_offset,
-            timeout: Some(10),
-            ..Default::default()
-        };
-        let updates = tg_client
-            .get_updates(update_request)
-            .wait()
-            .unwrap()
-            .unwrap();
+    tg::update_stream(&tg_client, 10)
+        .wait()
+        .map(Result::unwrap)
+        .for_each(|update| {
+            println!("{:?}", update);
 
-        update_offset = updates.last().map(|u| u.update_id + 1);
-
-        for u in updates.iter() {
-            if let Some(ref recv_msg) = u.message {
+            if let Some(ref recv_msg) = update.message {
                 let msg = tg::SendMessage {
                     chat_id: recv_msg.chat.id,
                     text: String::from("frack my sack"),
                 };
-                let _sent_msg = tg_client.send_message(msg).wait().unwrap().unwrap();
+                tg_client.send_message(msg).wait().unwrap().unwrap();
             }
-            println!("{:?}", u);
-        }
-    }
+        });
 }
 
 /// Adapter for using reqwest with futures.

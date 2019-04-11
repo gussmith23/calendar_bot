@@ -4,6 +4,8 @@ pub use self::types::*;
 
 use std::string::String;
 
+use futures::stream;
+use futures::stream::Stream;
 use futures::Future;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -76,6 +78,45 @@ where
         (self.send)(url_str, body_string)
             .map(|s| serde_json::from_str(&s).expect("Received invalid JSON response"))
     }
+}
+
+/// Gets a `Stream` of updates from the API.
+///
+/// This relieves the user of stringing together `Future`s, dealing
+/// with the `Vec` in the return type of `Client::get_updates`, and of
+/// passing the correct update offset each time.
+pub fn update_stream<'a, S, F, E>(
+    client: &'a Client<S>,
+    poll_timeout: u64,
+) -> impl Stream<Item = Update, Error = E> + 'a
+where
+    S: Fn(String, Option<String>) -> F,
+    F: 'a + Future<Item = String, Error = E>,
+    E: 'a,
+{
+    assert_ne!(poll_timeout, 0);
+
+    stream::unfold(None, move |offset| {
+        let updates_req = GetUpdates {
+            offset: offset,
+            limit: Some(100),
+            timeout: Some(poll_timeout as _),
+            allowed_updates: None,
+        };
+
+        Some(
+            client
+                .get_updates(updates_req)
+                .map(Result::unwrap)
+                .map(|updates| {
+                    // We need to get the last update ID to pass the
+                    // correct offset on the next get_updates() call.
+                    let next_offset = updates.last().map(|u| u.update_id + 1);
+                    (stream::iter_ok(updates), next_offset)
+                }),
+        )
+    })
+    .flatten()
 }
 
 #[cfg(test)]
