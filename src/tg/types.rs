@@ -1,14 +1,14 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Response<T> {
     pub ok: bool,
     pub result: Option<T>,
     pub description: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct User {
     pub id: i64,
     pub is_bot: bool,
@@ -18,7 +18,7 @@ pub struct User {
     pub language_code: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Update {
     pub update_id: i64,
     pub message: Option<Message>,
@@ -32,18 +32,18 @@ pub struct GetUpdates {
     pub allowed_updates: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Chat {
     pub id: i64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SendMessage {
     pub chat_id: i64,
     pub text: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Message {
     pub message_id: i64,
     pub chat: Chat,

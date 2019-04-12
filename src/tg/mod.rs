@@ -94,6 +94,21 @@ where
     F: 'a + Future<Item = String, Error = E>,
     E: 'a,
 {
+    let get_updates_fn =
+        move |updates_req: GetUpdates| client.get_updates(updates_req).map(Result::unwrap);
+    update_stream_impl(get_updates_fn, poll_timeout)
+}
+
+/// Does the actual work of `update_stream` but without depending on
+/// `Client` for testability.
+fn update_stream_impl<G, U, E>(
+    get_updates: G,
+    poll_timeout: u64,
+) -> impl Stream<Item = Update, Error = E>
+where
+    G: Fn(GetUpdates) -> U,
+    U: Future<Item = Vec<Update>, Error = E>,
+{
     assert_ne!(poll_timeout, 0);
 
     stream::unfold(None, move |offset| {
@@ -104,17 +119,12 @@ where
             allowed_updates: None,
         };
 
-        Some(
-            client
-                .get_updates(updates_req)
-                .map(Result::unwrap)
-                .map(|updates| {
-                    // We need to get the last update ID to pass the
-                    // correct offset on the next get_updates() call.
-                    let next_offset = updates.last().map(|u| u.update_id + 1);
-                    (stream::iter_ok(updates), next_offset)
-                }),
-        )
+        Some(get_updates(updates_req).map(|updates| {
+            // We need to get the last update ID to pass the
+            // correct offset on the next get_updates() call.
+            let next_offset = updates.last().map(|u| u.update_id + 1);
+            (stream::iter_ok(updates), next_offset)
+        }))
     })
     .flatten()
 }
@@ -123,9 +133,49 @@ where
 mod tests {
     use super::*;
 
+    use std::cell::Cell;
+    use std::cell::RefCell;
+
     use futures::future;
     use serde::Deserialize;
     use serde::Serialize;
+
+    #[test]
+    /// Makes sure that the update stream sends the correct offsets to
+    /// the API.
+    fn update_stream_offsets_progress() {
+        fn new_update(id: i64) -> Update {
+            Update {
+                update_id: id,
+                ..Default::default()
+            }
+        }
+
+        let last_requested_offset = RefCell::new(None);
+
+        // Our `get_updates` implementation returns dummy `Update`s
+        // with sequential update IDs starting at 0. It also has
+        // assertions to check it is called with the right ID offset.
+        let get_updates = |updates_req: GetUpdates| {
+            if let Some(cur_offset) = updates_req.offset {
+                if let Some(last_offset) = &*last_requested_offset.borrow() {
+                    assert_eq!(cur_offset, last_offset + 2);
+                }
+            }
+            last_requested_offset.replace(updates_req.offset);
+            let update_offset = updates_req.offset.unwrap_or(0);
+            future::ok::<_, ()>(vec![new_update(update_offset), new_update(update_offset + 1)])
+        };
+
+        let mut updates = update_stream_impl(get_updates, 1).wait().map(Result::unwrap);
+        updates.next();
+        updates.next();
+        updates.next();
+        assert!(*&*last_requested_offset.borrow() == Some(2));
+        updates.next();
+        updates.next();
+        assert!(*&*last_requested_offset.borrow() == Some(4));
+    }
 
     #[test]
     /// Tests that `request` formats its request correctly.
@@ -172,5 +222,26 @@ mod tests {
         let result: Fromble = client.request("", None as Option<()>).wait().unwrap();
 
         assert_eq!(result, expected_result);
+    }
+
+    /// Given a `FnOnce`, get a `Fn` that will panic if called more
+    /// than once.
+    fn force_once<S, T, F: FnOnce(S) -> T>(f: F) -> impl Fn(S) -> T {
+        let f_cell = Cell::new(Some(f));
+        move |s| f_cell.replace(None).unwrap()(s)
+    }
+
+    #[test]
+    fn force_once_callable() {
+        let f = |x| x + 1;
+        assert_eq!(force_once(f)(1), 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn force_once_panics() {
+        let f = force_once(|_| ());
+        f(());
+        f(());
     }
 }
