@@ -133,7 +133,6 @@ where
 mod tests {
     use super::*;
 
-    use std::cell::Cell;
     use std::cell::RefCell;
 
     use futures::future;
@@ -222,26 +221,5 @@ mod tests {
         let result: Fromble = client.request("", None as Option<()>).wait().unwrap();
 
         assert_eq!(result, expected_result);
-    }
-
-    /// Given a `FnOnce`, get a `Fn` that will panic if called more
-    /// than once.
-    fn force_once<S, T, F: FnOnce(S) -> T>(f: F) -> impl Fn(S) -> T {
-        let f_cell = Cell::new(Some(f));
-        move |s| f_cell.replace(None).unwrap()(s)
-    }
-
-    #[test]
-    fn force_once_callable() {
-        let f = |x| x + 1;
-        assert_eq!(force_once(f)(1), 2);
-    }
-
-    #[test]
-    #[should_panic]
-    fn force_once_panics() {
-        let f = force_once(|_| ());
-        f(());
-        f(());
     }
 }
