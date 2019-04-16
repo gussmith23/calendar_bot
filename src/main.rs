@@ -22,7 +22,7 @@ fn main() {
 
     tg::update_stream(&tg_client, 10)
         .filter_map(|update| update.message)
-        .for_each(|recv_msg| {
+        .filter_map(|recv_msg| {
             let (command, body) =
                 parse_command(recv_msg.text.as_ref().map(String::as_str).unwrap_or(""));
 
@@ -31,16 +31,19 @@ fn main() {
                     chat_id: recv_msg.chat.id,
                     text: String::from(body),
                 };
-                future::Either::A(tg_client.send_message(send_msg).map(|r| {
+                Some(tg_client.send_message(send_msg).map(|r| {
                     r.unwrap();
                     ()
                 }))
             } else {
-                future::Either::B(future::ok(()))
+                None
             }
         })
+        .map(Future::into_stream)
+        .flatten()
         .wait()
-        .unwrap();
+        .map(Result::unwrap)
+        .for_each(|_| ());
 }
 
 /// Given the body of a message, parse out the command from the rest
