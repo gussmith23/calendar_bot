@@ -31,10 +31,28 @@ fn main() {
                     chat_id: recv_msg.chat.id,
                     text: String::from(body),
                 };
-                Some(tg_client.send_message(send_msg).map(|r| {
-                    r.unwrap();
-                    ()
-                }))
+                Some(
+                    tg_client
+                        .send_message(send_msg)
+                        .map(Result::unwrap)
+                        .map(discard),
+                )
+            } else if command == "add_event" {
+                let response = match parse_event(body) {
+                    Ok(event) => format!("{:?}", event),
+                    Err(err) => String::from(err),
+                };
+
+                let send_msg = tg::SendMessage {
+                    chat_id: recv_msg.chat.id,
+                    text: response,
+                };
+                Some(
+                    tg_client
+                        .send_message(send_msg)
+                        .map(Result::unwrap)
+                        .map(discard),
+                )
             } else {
                 None
             }
@@ -78,6 +96,35 @@ fn parse_command(text: &str) -> (&str, &str) {
     }
 }
 
+/// Parses out a date, time, duration, and event description from the
+/// message body.
+fn parse_event(text: &str) -> Result<cal::Event, &'static str> {
+    use chrono::prelude::*;
+    use chrono::Duration;
+
+    const ERROR_MESSAGE: &'static str = "wrong";
+    let mut pieces = text.splitn(3, char::is_whitespace);
+    let date_text = pieces.next().ok_or(ERROR_MESSAGE)?;
+    let time_text = pieces.next().ok_or(ERROR_MESSAGE)?;
+    let description = pieces.next().unwrap_or("");
+
+    let date = NaiveDate::parse_from_str(date_text, "%m/%d/%Y").map_err(|_| ERROR_MESSAGE)?;
+    let time = NaiveTime::parse_from_str(time_text, "%H:%M:%S").map_err(|_| ERROR_MESSAGE)?;
+
+    let tz_datetime = FixedOffset::east(7)
+        .from_local_datetime(&NaiveDateTime::new(date, time))
+        .earliest()
+        .ok_or(ERROR_MESSAGE)?;
+    let utc_datetime = Utc.from_utc_datetime(&tz_datetime.naive_utc());
+
+    Ok(cal::Event {
+        organizer: String::new(),
+        description: String::from(description),
+        date: utc_datetime,
+        duration: Duration::hours(1),
+    })
+}
+
 /// Adapter for using reqwest with futures.
 fn synchronous_send(
     client: &reqwest::Client,
@@ -91,6 +138,10 @@ fn synchronous_send(
             .header(reqwest::header::CONTENT_TYPE, "application/json");
     }
     future::result::<String, reqwest::Error>(req.send().and_then(|mut resp| resp.text()))
+}
+
+fn discard<T>(_: T) -> () {
+    ()
 }
 
 const TOKEN_ENV_VAR: &'static str = "TG_BOT_TOKEN";
@@ -112,5 +163,39 @@ mod tests {
         assert_eq!(parse_command("/@"), ("", ""));
         assert_eq!(parse_command("help me"), ("", "help me"));
         assert_eq!(parse_command(""), ("", ""));
+    }
+
+    #[test]
+    fn parse_event_correct_datetime() {
+        use chrono::prelude::*;
+
+        let body = "1/15/2024 7:53:29 hello world";
+        let event = parse_event(body).unwrap();
+        assert_eq!(
+            event.date,
+            FixedOffset::east(7).ymd(2024, 1, 15).and_hms(7, 53, 29)
+        );
+    }
+
+    #[test]
+    fn parse_event_description() {
+        let body = "1/1/1 1:1:1 god is dead";
+        let event = parse_event(body).unwrap();
+        assert_eq!(event.description, "god is dead");
+    }
+
+    #[test]
+    fn parse_event_no_description() {
+        let body = "1/1/1 1:1:1";
+        let event = parse_event(body).unwrap();
+        assert_eq!(event.description, "");
+    }
+
+    #[test]
+    fn parse_event_errors() {
+        assert!(parse_event("1/1/ 1:1:1").is_err());
+        assert!(parse_event("1/1/1 1:67:1").is_err());
+        assert!(parse_event("1/1/11:1:1").is_err());
+        assert!(parse_event("1/1/1 i forgot the time").is_err());
     }
 }
