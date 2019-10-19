@@ -6,6 +6,7 @@ extern crate serde_json;
 
 mod cal;
 mod tg;
+mod ics;
 
 use std::mem::drop;
 use std::string::String;
